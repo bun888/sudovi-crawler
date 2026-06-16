@@ -2,8 +2,8 @@ name: Daily Court Scraper
 
 on:
   schedule:
-    - cron: "0 6 * * *"
-  workflow_dispatch:
+    - cron: "0 1 * * *"   # 🔥 svaki dan 01:00 UTC
+  workflow_dispatch:      # 🔥 ručno pokretanje (TEST)
 
 jobs:
   run:
@@ -19,15 +19,15 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install requests beautifulsoup4
 
       - name: Run crawler
         run: python crawler.py
 
-      - name: Commit state
+      - name: Commit results
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add state.json
-          git commit -m "update state" || echo "no changes"
+          git add state.json results.txt
+          git commit -m "daily update" || echo "no changes"
           git push
