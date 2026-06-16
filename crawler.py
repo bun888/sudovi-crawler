@@ -8,9 +8,9 @@ import os
 BASE = "https://odluke.sudovi.hr"
 KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
-# 🔥 tražimo JUČER (ili promijeni po potrebi)
+# 🔥 jučerašnji datum
 yesterday = date.today() - timedelta(days=1)
-TARGET = f"{yesterday.day}.{yesterday.month}.{yesterday.year}."
+TARGET = f"{yesterday.day}.{yesterday.month}.{yesterday.year}"
 
 STATE_FILE = "state.json"
 
@@ -27,21 +27,25 @@ seen = set(state["seen"])
 
 results = []
 
-# 🔥 prolaz kroz stranice (test 10, kasnije 1000)
-for page in range(1, 11):
+def normalize(text):
+    return text.replace(" ", "").replace("\xa0", "")
 
+for page in range(1, 50):  # 👈 privremeno povećano (bitno!)
+    
     url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={KEYWORD}"
     r = requests.get(url, timeout=30)
     soup = BeautifulSoup(r.text, "html.parser")
 
     items = soup.select("a.search-result")
 
+    if not items:
+        break
+
     for a in items:
 
         href = a["href"]
         doc_id = href.split("id=")[-1]
 
-        # 🔥 ako već viđeno → skip
         if doc_id in seen:
             continue
 
@@ -50,7 +54,6 @@ for page in range(1, 11):
         full_url = BASE + href
 
         try:
-            # 🔥 OTVARA SE SAMO DOCUMENT PAGE
             r2 = requests.get(full_url, timeout=30)
             s2 = BeautifulSoup(r2.text, "html.parser")
 
@@ -60,8 +63,8 @@ for page in range(1, 11):
 
             pub_date = pub.text.strip() if pub else ""
 
-            # 🔥 JEDINI FILTER (ispravan)
-            if pub_date == TARGET:
+            # 🔥 KLJUČNI FIX (radi i kad format nije identičan)
+            if TARGET in normalize(pub_date):
 
                 results.append({
                     "date": pub_date,
