@@ -25,7 +25,7 @@ new_ids = []
 new_links = []
 
 # 1–1000 stranica
-for page in range(1, 1001):
+for page in range(1, 11):
 
     url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={TARGET}"
     r = requests.get(url, timeout=30)
