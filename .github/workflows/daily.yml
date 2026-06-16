@@ -1,9 +1,12 @@
 name: Daily Court Scraper
 
+permissions:
+  contents: write
+
 on:
   schedule:
-    - cron: "0 1 * * *"   # 🔥 svaki dan 01:00 UTC
-  workflow_dispatch:      # 🔥 ručno pokretanje (TEST)
+    - cron: "0 1 * * *"
+  workflow_dispatch:
 
 jobs:
   run:
