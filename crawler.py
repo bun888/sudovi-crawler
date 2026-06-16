@@ -1,12 +1,16 @@
 import requests
 from bs4 import BeautifulSoup
+from datetime import date, timedelta
+import time
 import json
 import os
-import time
 
 BASE = "https://odluke.sudovi.hr"
+KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
-TARGET = "Zakon o zaštiti od nasilja u obitelji"
+# 🔥 tražimo JUČER
+yesterday = date.today() - timedelta(days=1)
+TARGET = f"{yesterday.day}.{yesterday.month}.{yesterday.year}."
 
 STATE_FILE = "state.json"
 
@@ -21,61 +25,60 @@ def save_state(state):
 state = load_state()
 seen = set(state["seen"])
 
-new_ids = []
-new_links = []
+results = []
 
-# 1–1000 stranica
+# 🔥 TEST: prvih 10 stranica (kasnije može 1000)
 for page in range(1, 11):
 
-    url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={TARGET}"
+    url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={KEYWORD}"
     r = requests.get(url, timeout=30)
     soup = BeautifulSoup(r.text, "html.parser")
 
     items = soup.select("a.search-result")
 
-    if not items:
-        break
-
     for a in items:
-        href = a["href"]
-        full = BASE + href
 
-        # extract ID iz URL-a
+        href = a["href"]
         doc_id = href.split("id=")[-1]
 
         if doc_id in seen:
             continue
 
         seen.add(doc_id)
-        new_ids.append(doc_id)
-        new_links.append(full)
 
-    time.sleep(0.2)
+        full_url = BASE + href
 
-# 2) ako ima novih → provjeri datum objave
-results = []
+        try:
+            r2 = requests.get(full_url, timeout=30)
+            s2 = BeautifulSoup(r2.text, "html.parser")
 
-for link in new_links:
+            pub = s2.select_one('[data-metadata-type="publication-date"] .metadata-content')
 
-    r = requests.get(link, timeout=30)
-    soup = BeautifulSoup(r.text, "html.parser")
+            if pub:
+                pub_date = pub.text.strip()
 
-    pub = soup.select_one('[data-metadata-type="publication-date"] .metadata-content')
+                # 🔥 FILTER: samo JUČER
+                if pub_date == TARGET:
+                    results.append({
+                        "date": pub_date,
+                        "link": full_url
+                    })
 
-    date = pub.text.strip() if pub else "?"
+        except Exception as e:
+            print("error:", e)
 
-    results.append({
-        "link": link,
-        "date": date
-    })
+        time.sleep(0.2)
 
-    time.sleep(0.2)
+    time.sleep(0.5)
 
-# save state
+# 💾 spremi state
 state["seen"] = list(seen)
 save_state(state)
 
-# output
-print("\nNEW RESULTS:\n")
-for r in results:
-    print(r["date"], r["link"])
+# 💾 napiši results.txt
+with open("results.txt", "w", encoding="utf-8") as f:
+    for r in results:
+        f.write(f"{r['date']} {r['link']}\n")
+
+print("DONE")
+print("Found:", len(results))
