@@ -8,7 +8,7 @@ import os
 BASE = "https://odluke.sudovi.hr"
 KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
-# 🔥 tražimo JUČER
+# 🔥 tražimo JUČER (ili promijeni po potrebi)
 yesterday = date.today() - timedelta(days=1)
 TARGET = f"{yesterday.day}.{yesterday.month}.{yesterday.year}."
 
@@ -27,7 +27,7 @@ seen = set(state["seen"])
 
 results = []
 
-# 🔥 TEST: prvih 10 stranica (kasnije može 1000)
+# 🔥 prolaz kroz stranice (test 10, kasnije 1000)
 for page in range(1, 11):
 
     url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={KEYWORD}"
@@ -41,6 +41,7 @@ for page in range(1, 11):
         href = a["href"]
         doc_id = href.split("id=")[-1]
 
+        # 🔥 ako već viđeno → skip
         if doc_id in seen:
             continue
 
@@ -49,20 +50,25 @@ for page in range(1, 11):
         full_url = BASE + href
 
         try:
+            # 🔥 OTVARA SE SAMO DOCUMENT PAGE
             r2 = requests.get(full_url, timeout=30)
             s2 = BeautifulSoup(r2.text, "html.parser")
 
-            pub = s2.select_one('[data-metadata-type="publication-date"] .metadata-content')
+            pub = s2.select_one(
+                '[data-metadata-type="publication-date"] .metadata-content'
+            )
 
-            if pub:
-                pub_date = pub.text.strip()
+            pub_date = pub.text.strip() if pub else ""
 
-                # 🔥 FILTER: samo JUČER
-                if pub_date == TARGET:
-                    results.append({
-                        "date": pub_date,
-                        "link": full_url
-                    })
+            # 🔥 JEDINI FILTER (ispravan)
+            if pub_date == TARGET:
+
+                results.append({
+                    "date": pub_date,
+                    "link": full_url
+                })
+
+                print("FOUND:", pub_date, full_url)
 
         except Exception as e:
             print("error:", e)
@@ -75,10 +81,10 @@ for page in range(1, 11):
 state["seen"] = list(seen)
 save_state(state)
 
-# 💾 napiši results.txt
+# 💾 results.txt
 with open("results.txt", "w", encoding="utf-8") as f:
     for r in results:
         f.write(f"{r['date']} {r['link']}\n")
 
 print("DONE")
-print("Found:", len(results))
+print("FOUND:", len(results))
