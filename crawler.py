@@ -11,6 +11,8 @@ KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
 STATE_FILE = "state.json"
 
+session = requests.Session()
+
 # jučerašnji datum po hrvatskom vremenu
 TARGET = (
     datetime.now(ZoneInfo("Europe/Zagreb"))
@@ -43,7 +45,7 @@ results = []
 
 print("TARGET DATE:", TARGET)
 
-for page in range(1, 1001):
+for page in range(1, 21):
 
     print(f"PAGE {page}")
 
@@ -55,7 +57,7 @@ for page in range(1, 1001):
     )
 
     try:
-        r = requests.get(url, timeout=30)
+        r = session.get(url, timeout=30)
         r.raise_for_status()
 
     except Exception as e:
@@ -80,14 +82,14 @@ for page in range(1, 1001):
 
             doc_id = href.split("id=")[-1]
 
-            # već viđeno → ne otvaraj presudu
+            # već viđeno → ne otvaraj dokument
             if doc_id in seen:
                 continue
 
             full_url = BASE + href
 
             try:
-                r2 = requests.get(full_url, timeout=30)
+                r2 = session.get(full_url, timeout=30)
                 r2.raise_for_status()
 
                 s2 = BeautifulSoup(r2.text, "html.parser")
@@ -109,18 +111,18 @@ for page in range(1, 1001):
 
                     print("FOUND:", full_url)
 
-                # spremi kao viđeno tek nakon uspješnog otvaranja
+                # označi kao viđeno tek nakon uspješnog čitanja
                 seen.add(doc_id)
 
             except Exception as e:
                 print("DOC ERROR:", e)
 
-            time.sleep(0.2)
+            time.sleep(0.05)
 
         except Exception as e:
             print("ITEM ERROR:", e)
 
-    time.sleep(0.5)
+    time.sleep(0.05)
 
 state["seen"] = sorted(seen)
 save_state(state)
