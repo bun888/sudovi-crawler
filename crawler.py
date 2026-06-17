@@ -43,7 +43,7 @@ results = []
 
 print("TARGET DATE:", TARGET)
 
-for page in range(1, 21):
+for page in range(1, 1001):
 
     print(f"PAGE {page}")
 
