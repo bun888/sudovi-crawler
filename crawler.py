@@ -64,7 +64,7 @@ for page in range(1, 11):  # 👈 privremeno povećano (bitno!)
             print("DEBUG DATE:", pub_date, full_url)
 
             # 🔥 KLJUČNI FIX (radi i kad format nije identičan)
-            if TARGET in normalize(pub_date):
+            if TARGET.replace(".", "") in pub_date.replace(".", ""):
 
                 results.append({
                     "date": pub_date,
