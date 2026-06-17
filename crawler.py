@@ -1,4 +1,3 @@
-```python
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -145,4 +144,3 @@ with open(today_file, "w", encoding="utf-8") as f:
 print()
 print("DONE")
 print("FOUND:", len(results))
-```
