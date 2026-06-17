@@ -9,7 +9,7 @@ BASE = "https://odluke.sudovi.hr"
 KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
 # 🔥 jučerašnji datum
-TARGET = "16.6.2026"
+TARGET = "17.6.2026"
 
 STATE_FILE = "state.json"
 
