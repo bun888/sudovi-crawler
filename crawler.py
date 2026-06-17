@@ -13,11 +13,16 @@ STATE_FILE = "state.json"
 
 session = requests.Session()
 
-# jučerašnji datum po hrvatskom vremenu
+# Vrijeme pokretanja crawlera (samo jednom!)
+RUN_DATE = datetime.now(ZoneInfo("Europe/Zagreb"))
+
+# Jučerašnji datum u odnosu na vrijeme pokretanja
 TARGET = (
-    datetime.now(ZoneInfo("Europe/Zagreb"))
-    - timedelta(days=1)
+    RUN_DATE - timedelta(days=1)
 ).strftime("%-d.%-m.%Y")
+
+# Datoteka rezultata vezana uz datum pokretanja
+RESULT_FILE = RUN_DATE.strftime("results_%Y-%m-%d.md")
 
 
 def load_state():
@@ -43,6 +48,7 @@ seen = set(state["seen"])
 
 results = []
 
+print("RUN DATE:", RUN_DATE.strftime("%d.%m.%Y %H:%M:%S"))
 print("TARGET DATE:", TARGET)
 
 for page in range(1, 1001):
@@ -82,7 +88,7 @@ for page in range(1, 1001):
 
             doc_id = href.split("id=")[-1]
 
-            # već viđeno → ne otvaraj dokument
+            # već viđeno -> ne otvaraj presudu
             if doc_id in seen:
                 continue
 
@@ -111,7 +117,7 @@ for page in range(1, 1001):
 
                     print("FOUND:", full_url)
 
-                # označi kao viđeno tek nakon uspješnog čitanja
+                # spremi kao viđeno tek nakon uspješnog čitanja
                 seen.add(doc_id)
 
             except Exception as e:
@@ -127,22 +133,17 @@ for page in range(1, 1001):
 state["seen"] = sorted(seen)
 save_state(state)
 
-today_file = datetime.now(
-    ZoneInfo("Europe/Zagreb")
-).strftime("results_%Y-%m-%d.md")
-
-with open(today_file, "w", encoding="utf-8") as f:
+with open(RESULT_FILE, "w", encoding="utf-8") as f:
 
     f.write(f"# Presude objavljene {TARGET}\n\n")
 
     if results:
-
         for item in results:
             f.write(f"- {item['link']}\n")
-
     else:
         f.write("Nema novih presuda.\n")
 
 print()
 print("DONE")
 print("FOUND:", len(results))
+print("RESULT FILE:", RESULT_FILE)
