@@ -1,6 +1,8 @@
+```python
 import requests
 from bs4 import BeautifulSoup
-from datetime import date, timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import time
 import json
 import os
@@ -8,86 +10,139 @@ import os
 BASE = "https://odluke.sudovi.hr"
 KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
-# 🔥 jučerašnji datum
-TARGET = "17.6.2026"
-
 STATE_FILE = "state.json"
+
+# jučerašnji datum po hrvatskom vremenu
+TARGET = (
+    datetime.now(ZoneInfo("Europe/Zagreb"))
+    - timedelta(days=1)
+).strftime("%-d.%-m.%Y")
+
 
 def load_state():
     if os.path.exists(STATE_FILE):
-        return json.load(open(STATE_FILE, "r", encoding="utf-8"))
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     return {"seen": []}
 
+
 def save_state(state):
-    json.dump(state, open(STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(
+            state,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
 
 state = load_state()
 seen = set(state["seen"])
 
 results = []
 
-def normalize(text):
-    return text.replace(" ", "").replace("\xa0", "")
+print("TARGET DATE:", TARGET)
 
-for page in range(1, 11):  # 👈 privremeno povećano (bitno!)
-    
-    url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={KEYWORD}"
-    r = requests.get(url, timeout=30)
+for page in range(1, 1001):
+
+    print(f"PAGE {page}")
+
+    url = (
+        f"{BASE}/Document/DisplayList"
+        f"?page={page}"
+        f"&sort=dat"
+        f"&zk={KEYWORD}"
+    )
+
+    try:
+        r = requests.get(url, timeout=30)
+        r.raise_for_status()
+
+    except Exception as e:
+        print("PAGE ERROR:", e)
+        continue
+
     soup = BeautifulSoup(r.text, "html.parser")
 
     items = soup.select("a.search-result")
 
     if not items:
+        print("NO MORE RESULTS")
         break
 
     for a in items:
 
-        href = a["href"]
-        doc_id = href.split("id=")[-1]
-
-        if doc_id in seen:
-            continue
-
-        seen.add(doc_id)
-
-        full_url = BASE + href
-
         try:
-            r2 = requests.get(full_url, timeout=30)
-            s2 = BeautifulSoup(r2.text, "html.parser")
+            href = a["href"]
 
-            pub = s2.select_one(
-                '[data-metadata-type="publication-date"] .metadata-content'
-            )
+            if "id=" not in href:
+                continue
 
-            pub_date = pub.text.strip() if pub else ""
-            print("DEBUG DATE:", pub_date, full_url)
+            doc_id = href.split("id=")[-1]
 
-            # 🔥 KLJUČNI FIX (radi i kad format nije identičan)
-            if TARGET.replace(".", "") in pub_date.replace(".", ""):
+            # već viđeno → ne otvaraj presudu
+            if doc_id in seen:
+                continue
 
-                results.append({
-                    "date": pub_date,
-                    "link": full_url
-                })
+            full_url = BASE + href
 
-                print("FOUND:", pub_date, full_url)
+            try:
+                r2 = requests.get(full_url, timeout=30)
+                r2.raise_for_status()
+
+                s2 = BeautifulSoup(r2.text, "html.parser")
+
+                pub = s2.select_one(
+                    '[data-metadata-type="publication-date"] .metadata-content'
+                )
+
+                pub_date = pub.text.strip() if pub else ""
+
+                print("NEW:", pub_date, full_url)
+
+                if TARGET.replace(".", "") in pub_date.replace(".", ""):
+
+                    results.append({
+                        "date": pub_date,
+                        "link": full_url
+                    })
+
+                    print("FOUND:", full_url)
+
+                # spremi kao viđeno tek nakon uspješnog otvaranja
+                seen.add(doc_id)
+
+            except Exception as e:
+                print("DOC ERROR:", e)
+
+            time.sleep(0.2)
 
         except Exception as e:
-            print("error:", e)
-
-        time.sleep(0.2)
+            print("ITEM ERROR:", e)
 
     time.sleep(0.5)
 
-# 💾 spremi state
-state["seen"] = list(seen)
+state["seen"] = sorted(seen)
 save_state(state)
 
-# 💾 results.txt
-with open("results.txt", "w", encoding="utf-8") as f:
-    for r in results:
-        f.write(f"{r['date']} {r['link']}\n")
+today_file = datetime.now(
+    ZoneInfo("Europe/Zagreb")
+).strftime("results_%Y-%m-%d.md")
 
+with open(today_file, "w", encoding="utf-8") as f:
+
+    f.write(f"# Presude objavljene {TARGET}\n\n")
+
+    if results:
+
+        for item in results:
+            f.write(f"- {item['link']}\n")
+
+    else:
+        f.write("Nema novih presuda.\n")
+
+print()
 print("DONE")
 print("FOUND:", len(results))
+```
