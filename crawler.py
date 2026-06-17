@@ -9,8 +9,7 @@ BASE = "https://odluke.sudovi.hr"
 KEYWORD = "Zakon o zaštiti od nasilja u obitelji"
 
 # 🔥 jučerašnji datum
-yesterday = date.today() - timedelta(days=1)
-TARGET = f"{yesterday.day}.{yesterday.month}.{yesterday.year}"
+TARGET = "16.6.2026"
 
 STATE_FILE = "state.json"
 
@@ -30,7 +29,7 @@ results = []
 def normalize(text):
     return text.replace(" ", "").replace("\xa0", "")
 
-for page in range(1, 50):  # 👈 privremeno povećano (bitno!)
+for page in range(1, 11):  # 👈 privremeno povećano (bitno!)
     
     url = f"{BASE}/Document/DisplayList?page={page}&sort=dat&zk={KEYWORD}"
     r = requests.get(url, timeout=30)
