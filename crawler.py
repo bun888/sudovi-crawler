@@ -61,6 +61,7 @@ for page in range(1, 11):  # 👈 privremeno povećano (bitno!)
             )
 
             pub_date = pub.text.strip() if pub else ""
+            print("DEBUG DATE:", pub_date, full_url)
 
             # 🔥 KLJUČNI FIX (radi i kad format nije identičan)
             if TARGET in normalize(pub_date):
