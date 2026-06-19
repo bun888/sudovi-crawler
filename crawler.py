@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://odluke.sudovi.hr/Document/DisplayList"
+
 ZAGREB = ZoneInfo("Europe/Zagreb")
 
 session = requests.Session()
@@ -35,11 +36,19 @@ def save_state(seen):
 
 
 def make_results_file(found):
-    today = datetime.now(ZAGREB).strftime("%Y-%m-%d")
-    filename = f"results_{today}.md"
+    run_time = datetime.now(ZAGREB)
+
+    filename = run_time.strftime(
+        "results_%Y-%m-%d_%H-%M-%S.md"
+    )
 
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(f"# Nove presude pronađene {today}\n\n")
+
+        f.write(
+            "# Nove presude pronađene "
+            + run_time.strftime("%d.%m.%Y %H:%M:%S")
+            + "\n\n"
+        )
 
         if not found:
             f.write("Nema novih presuda.\n")
@@ -51,14 +60,18 @@ def make_results_file(found):
 
 
 def main():
+
     seen = load_state()
     found = []
 
-    run_date = datetime.now(ZAGREB).strftime("%d.%m.%Y %H:%M:%S")
+    run_date = datetime.now(ZAGREB).strftime(
+        "%d.%m.%Y %H:%M:%S"
+    )
 
     print(f"RUN DATE: {run_date}")
 
     for page in range(1, 1001):
+
         print(f"PAGE {page}")
 
         params = {
@@ -68,6 +81,7 @@ def main():
         }
 
         try:
+
             r = session.get(
                 BASE_URL,
                 params=params,
@@ -78,18 +92,23 @@ def main():
             r.raise_for_status()
 
         except Exception as e:
+
             print(f"ERROR PAGE {page}: {e}")
             continue
 
         soup = BeautifulSoup(r.text, "html.parser")
 
         for a in soup.find_all("a", href=True):
+
             href = a["href"]
 
             if "/Document/View?id=" not in href:
                 continue
 
-            m = re.search(r"id=([0-9a-fA-F-]+)", href)
+            m = re.search(
+                r"id=([0-9a-fA-F-]+)",
+                href,
+            )
 
             if not m:
                 continue
@@ -104,6 +123,7 @@ def main():
             print(f"NEW: {url}")
 
             found.append(url)
+
             seen.add(doc_id)
 
     save_state(seen)
