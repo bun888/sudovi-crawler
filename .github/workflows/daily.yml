@@ -27,13 +27,6 @@ jobs:
 
       - name: Test DNS
         run: |
-          echo "Testing DNS resolution..."
-          getent hosts odluke.sudovi.hr || true
-          nslookup odluke.sudovi.hr || true
-          curl -I --max-time 20 https://odluke.sudovi.hr/ || true
-
-      - name: Test DNS
-        run: |
           echo "=== SYSTEM DNS ==="
           getent hosts odluke.sudovi.hr || true
 
