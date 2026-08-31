@@ -32,6 +32,16 @@ jobs:
           nslookup odluke.sudovi.hr || true
           curl -I --max-time 20 https://odluke.sudovi.hr/ || true
 
+      - name: Test Cloudflare DNS
+        run: |
+          echo "Cloudflare DNS:"
+          nslookup odluke.sudovi.hr 1.1.1.1
+
+      - name: Test Google DNS
+        run: |
+          echo "Google DNS:"
+          nslookup odluke.sudovi.hr 8.8.8.8
+
       - name: Run crawler
         run: |
           python crawler.py
