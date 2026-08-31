@@ -1,5 +1,5 @@
-```python
 import json
+import os
 import re
 import time
 from datetime import datetime
@@ -15,7 +15,7 @@ STATE_FILE = "state.json"
 
 MAX_PAGES = 1000
 
-# Koliko puta pokušati dohvatiti jednu stranicu prije nego je proglasimo neuspješnom
+# Koliko puta pokušati dohvatiti stranicu
 MAX_RETRIES = 3
 
 # Pauza između pokušaja
@@ -41,9 +41,7 @@ def load_state():
 def save_state(seen):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(
-            {
-                "seen": sorted(seen)
-            },
+            {"seen": sorted(seen)},
             f,
             ensure_ascii=False,
             indent=2
@@ -51,12 +49,6 @@ def save_state(seen):
 
 
 def get_page(page):
-    """
-    Pokušava dohvatiti jednu stranicu više puta.
-    Vraća BeautifulSoup objekt ako uspije.
-    Ako svi pokušaji ne uspiju, vraća None i grešku.
-    """
-
     params = {
         "page": page,
         "sort": "dat",
@@ -66,7 +58,6 @@ def get_page(page):
     last_error = None
 
     for attempt in range(1, MAX_RETRIES + 1):
-
         try:
             r = session.get(
                 BASE_URL,
@@ -80,12 +71,12 @@ def get_page(page):
             return BeautifulSoup(r.text, "html.parser"), None
 
         except Exception as e:
-
             last_error = e
 
             print(
                 f"PAGE {page}: pokušaj "
-                f"{attempt}/{MAX_RETRIES} nije uspio: {e}"
+                f"{attempt}/{MAX_RETRIES} nije uspio: {e}",
+                flush=True
             )
 
             if attempt < MAX_RETRIES:
@@ -94,13 +85,7 @@ def get_page(page):
     return None, last_error
 
 
-def make_results_file(found, errors, run_time):
-    """
-    Sprema rezultate u jedinstvenu datoteku.
-    U imenu je i datum i vrijeme pokretanja kako se datoteke
-    nikada ne bi međusobno prepisale.
-    """
-
+def make_results_file(found, errors, run_time, pages_checked):
     filename = run_time.strftime(
         "results_%Y-%m-%d_%H-%M-%S.md"
     )
@@ -114,12 +99,11 @@ def make_results_file(found, errors, run_time):
         )
 
         if errors:
-
             f.write("## ⚠️ NEPOTPUN CRAWL\n\n")
 
             f.write(
                 f"Uspješno dohvaćenih stranica: "
-                f"{MAX_PAGES - len(errors)}\n"
+                f"{pages_checked}\n"
             )
 
             f.write(
@@ -141,11 +125,11 @@ def make_results_file(found, errors, run_time):
             f.write("\n")
 
         else:
-
             f.write("## ✅ CRAWL USPJEŠAN\n\n")
 
             f.write(
-                f"Provjereno stranica: {MAX_PAGES}\n"
+                f"Provjereno stranica: "
+                f"{pages_checked}\n"
             )
 
             f.write(
@@ -154,48 +138,46 @@ def make_results_file(found, errors, run_time):
             )
 
         if found:
-
             f.write("## Nove presude\n\n")
 
             for url in found:
                 f.write(
                     f"- [{url}]({url})\n"
                 )
-
         else:
-
             f.write("Nema novih presuda.\n")
 
     return filename
 
 
 def main():
-
     run_time = datetime.now(ZAGREB)
 
     print(
         "RUN DATE:",
-        run_time.strftime("%d.%m.%Y %H:%M:%S")
+        run_time.strftime("%d.%m.%Y %H:%M:%S"),
+        flush=True
     )
 
     seen = load_state()
 
     found = []
     errors = []
+    pages_checked = 0
 
     for page in range(1, MAX_PAGES + 1):
 
-        print(f"PAGE {page}")
+        print(f"PAGE {page}", flush=True)
 
         soup, error = get_page(page)
 
         if soup is None:
-
             errors.append(
                 (page, str(error))
             )
-
             continue
+
+        pages_checked += 1
 
         items = soup.find_all(
             "a",
@@ -206,7 +188,6 @@ def main():
 
             href = a["href"]
 
-            # Prihvati samo linkove prema dokumentima
             if "/Document/View?id=" not in href:
                 continue
 
@@ -220,42 +201,51 @@ def main():
 
             doc_id = match.group(1)
 
-            # Već poznat UUID -> preskoči
             if doc_id in seen:
                 continue
 
             full_url = f"https://odluke.sudovi.hr{href}"
 
             print(
-                f"NEW: {full_url}"
+                f"NEW: {full_url}",
+                flush=True
             )
 
-            # Novi UUID odmah ide u rezultat
             found.append(full_url)
 
-            # I odmah ga označavamo kao viđen
             seen.add(doc_id)
 
-        # Mala pauza između stranica
         time.sleep(0.05)
 
-    # State spremamo samo s UUID-ovima koje smo stvarno vidjeli
     save_state(seen)
 
     result_file = make_results_file(
         found,
         errors,
-        run_time
+        run_time,
+        pages_checked
     )
 
-    print()
-    print("DONE")
-    print("FOUND:", len(found))
-    print("PAGE ERRORS:", len(errors))
-    print("RESULT FILE:", result_file)
+    print(
+        f"DONE",
+        flush=True
+    )
 
-    # Ako je bilo grešaka, workflow će završiti kao failed.
-    # To omogućuje da jasno vidiš da crawl nije bio potpun.
+    print(
+        f"FOUND: {len(found)}",
+        flush=True
+    )
+
+    print(
+        f"PAGE ERRORS: {len(errors)}",
+        flush=True
+    )
+
+    print(
+        f"RESULT FILE: {result_file}",
+        flush=True
+    )
+
     if errors:
         raise RuntimeError(
             f"Crawl nije bio potpun. "
@@ -264,6 +254,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import os
     main()
-```
