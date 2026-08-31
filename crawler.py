@@ -1,5 +1,7 @@
+```python
 import json
 import re
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -7,36 +9,97 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://odluke.sudovi.hr/Document/DisplayList"
-
 ZAGREB = ZoneInfo("Europe/Zagreb")
 
-session = requests.Session()
+STATE_FILE = "state.json"
+
+MAX_PAGES = 1000
+
+# Koliko puta pokušati dohvatiti jednu stranicu prije nego je proglasimo neuspješnom
+MAX_RETRIES = 3
+
+# Pauza između pokušaja
+RETRY_DELAY = 5
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+session = requests.Session()
+
 
 def load_state():
-    try:
-        with open("state.json", "r", encoding="utf-8") as f:
-            return set(json.load(f).get("seen", []))
-    except FileNotFoundError:
-        return set()
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return set(data.get("seen", []))
+
+    return set()
 
 
 def save_state(seen):
-    with open("state.json", "w", encoding="utf-8") as f:
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(
-            {"seen": sorted(seen)},
+            {
+                "seen": sorted(seen)
+            },
             f,
             ensure_ascii=False,
-            indent=2,
+            indent=2
         )
 
 
-def make_results_file(found):
-    run_time = datetime.now(ZAGREB)
+def get_page(page):
+    """
+    Pokušava dohvatiti jednu stranicu više puta.
+    Vraća BeautifulSoup objekt ako uspije.
+    Ako svi pokušaji ne uspiju, vraća None i grešku.
+    """
+
+    params = {
+        "page": page,
+        "sort": "dat",
+        "zk": "Zakon o zaštiti od nasilja u obitelji"
+    }
+
+    last_error = None
+
+    for attempt in range(1, MAX_RETRIES + 1):
+
+        try:
+            r = session.get(
+                BASE_URL,
+                params=params,
+                headers=HEADERS,
+                timeout=30
+            )
+
+            r.raise_for_status()
+
+            return BeautifulSoup(r.text, "html.parser"), None
+
+        except Exception as e:
+
+            last_error = e
+
+            print(
+                f"PAGE {page}: pokušaj "
+                f"{attempt}/{MAX_RETRIES} nije uspio: {e}"
+            )
+
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_DELAY)
+
+    return None, last_error
+
+
+def make_results_file(found, errors, run_time):
+    """
+    Sprema rezultate u jedinstvenu datoteku.
+    U imenu je i datum i vrijeme pokretanja kako se datoteke
+    nikada ne bi međusobno prepisale.
+    """
 
     filename = run_time.strftime(
         "results_%Y-%m-%d_%H-%M-%S.md"
@@ -45,96 +108,162 @@ def make_results_file(found):
     with open(filename, "w", encoding="utf-8") as f:
 
         f.write(
-            "# Nove presude pronađene "
+            "# Crawl "
             + run_time.strftime("%d.%m.%Y %H:%M:%S")
             + "\n\n"
         )
 
-        if not found:
-            f.write("Nema novih presuda.\n")
+        if errors:
+
+            f.write("## ⚠️ NEPOTPUN CRAWL\n\n")
+
+            f.write(
+                f"Uspješno dohvaćenih stranica: "
+                f"{MAX_PAGES - len(errors)}\n"
+            )
+
+            f.write(
+                f"Stranica s greškom: {len(errors)}\n"
+            )
+
+            f.write(
+                f"Pronađenih novih UUID-ova: "
+                f"{len(found)}\n\n"
+            )
+
+            f.write("### Greške\n\n")
+
+            for page, error in errors:
+                f.write(
+                    f"- PAGE {page}: {error}\n"
+                )
+
+            f.write("\n")
+
         else:
+
+            f.write("## ✅ CRAWL USPJEŠAN\n\n")
+
+            f.write(
+                f"Provjereno stranica: {MAX_PAGES}\n"
+            )
+
+            f.write(
+                f"Pronađenih novih UUID-ova: "
+                f"{len(found)}\n\n"
+            )
+
+        if found:
+
+            f.write("## Nove presude\n\n")
+
             for url in found:
-                f.write(f"- [{url}]({url})\n")
+                f.write(
+                    f"- [{url}]({url})\n"
+                )
+
+        else:
+
+            f.write("Nema novih presuda.\n")
 
     return filename
 
 
 def main():
 
-    seen = load_state()
-    found = []
+    run_time = datetime.now(ZAGREB)
 
-    run_date = datetime.now(ZAGREB).strftime(
-        "%d.%m.%Y %H:%M:%S"
+    print(
+        "RUN DATE:",
+        run_time.strftime("%d.%m.%Y %H:%M:%S")
     )
 
-    print(f"RUN DATE: {run_date}")
+    seen = load_state()
 
-    for page in range(1, 1001):
+    found = []
+    errors = []
+
+    for page in range(1, MAX_PAGES + 1):
 
         print(f"PAGE {page}")
 
-        params = {
-            "page": page,
-            "sort": "dat",
-            "zk": "Zakon o zaštiti od nasilja u obitelji",
-        }
+        soup, error = get_page(page)
 
-        try:
+        if soup is None:
 
-            r = session.get(
-                BASE_URL,
-                params=params,
-                headers=HEADERS,
-                timeout=30,
+            errors.append(
+                (page, str(error))
             )
 
-            r.raise_for_status()
-
-        except Exception as e:
-
-            print(f"ERROR PAGE {page}: {e}")
             continue
 
-        soup = BeautifulSoup(r.text, "html.parser")
+        items = soup.find_all(
+            "a",
+            href=True
+        )
 
-        for a in soup.find_all("a", href=True):
+        for a in items:
 
             href = a["href"]
 
+            # Prihvati samo linkove prema dokumentima
             if "/Document/View?id=" not in href:
                 continue
 
-            m = re.search(
+            match = re.search(
                 r"id=([0-9a-fA-F-]+)",
-                href,
+                href
             )
 
-            if not m:
+            if not match:
                 continue
 
-            doc_id = m.group(1)
+            doc_id = match.group(1)
 
+            # Već poznat UUID -> preskoči
             if doc_id in seen:
                 continue
 
-            url = f"https://odluke.sudovi.hr{href}"
+            full_url = f"https://odluke.sudovi.hr{href}"
 
-            print(f"NEW: {url}")
+            print(
+                f"NEW: {full_url}"
+            )
 
-            found.append(url)
+            # Novi UUID odmah ide u rezultat
+            found.append(full_url)
 
+            # I odmah ga označavamo kao viđen
             seen.add(doc_id)
 
+        # Mala pauza između stranica
+        time.sleep(0.05)
+
+    # State spremamo samo s UUID-ovima koje smo stvarno vidjeli
     save_state(seen)
 
-    result_file = make_results_file(found)
+    result_file = make_results_file(
+        found,
+        errors,
+        run_time
+    )
 
     print()
     print("DONE")
-    print(f"FOUND: {len(found)}")
-    print(f"RESULT FILE: {result_file}")
+    print("FOUND:", len(found))
+    print("PAGE ERRORS:", len(errors))
+    print("RESULT FILE:", result_file)
+
+    # Ako je bilo grešaka, workflow će završiti kao failed.
+    # To omogućuje da jasno vidiš da crawl nije bio potpun.
+    if errors:
+        raise RuntimeError(
+            f"Crawl nije bio potpun. "
+            f"Neuspješno dohvaćenih stranica: {len(errors)}"
+        )
 
 
 if __name__ == "__main__":
+    import os
     main()
+```
