@@ -25,6 +25,13 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Test DNS
+        run: |
+          echo "Testing DNS resolution..."
+          getent hosts odluke.sudovi.hr || true
+          nslookup odluke.sudovi.hr || true
+          curl -I --max-time 20 https://odluke.sudovi.hr/ || true
+
       - name: Run crawler
         run: |
           python crawler.py
