@@ -32,15 +32,22 @@ jobs:
           nslookup odluke.sudovi.hr || true
           curl -I --max-time 20 https://odluke.sudovi.hr/ || true
 
-      - name: Test Cloudflare DNS
+      - name: Test DNS
         run: |
-          echo "Cloudflare DNS:"
-          nslookup odluke.sudovi.hr 1.1.1.1
+          echo "=== SYSTEM DNS ==="
+          getent hosts odluke.sudovi.hr || true
 
-      - name: Test Google DNS
-        run: |
-          echo "Google DNS:"
-          nslookup odluke.sudovi.hr 8.8.8.8
+          echo "=== CLOUDFLARE ==="
+          nslookup odluke.sudovi.hr 1.1.1.1 || true
+
+          echo "=== GOOGLE ==="
+          nslookup odluke.sudovi.hr 8.8.8.8 || true
+
+          echo "=== QUAD9 ==="
+          nslookup odluke.sudovi.hr 9.9.9.9 || true
+
+          echo "=== CURL ==="
+          curl -I --max-time 20 https://odluke.sudovi.hr/ || true
 
       - name: Run crawler
         run: |
