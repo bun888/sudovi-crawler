@@ -25,33 +25,39 @@ jobs:
         run: |
           pip install -r requirements.txt
     
+      - name: Check DNS
+        id: dns_check
+        continue-on-error: true
+        run: |
+          echo "=== SYSTEM DNS ==="
+          getent hosts odluke.sudovi.hr
+    
+      - name: Use fallback IP
+        if: steps.dns_check.outcome != 'success'
+        run: |
+          echo "DNS resolution failed."
+          echo "Using fallback IP 85.209.13.121"
+    
+          echo "85.209.13.121 odluke.sudovi.hr" | sudo tee -a /etc/hosts
+    
+          echo "=== HOSTS ENTRY ==="
+          getent hosts odluke.sudovi.hr
+    
       - name: Network diagnostics
         run: |
           echo "=== DATE ==="
           date -u
     
-          echo "=== SYSTEM DNS ==="
+          echo "=== DNS RESULT ==="
           getent hosts odluke.sudovi.hr || true
     
-          echo "=== CLOUDFLARE DNS ==="
-          nslookup odluke.sudovi.hr 1.1.1.1 || true
+          echo "=== HTTPS TEST ==="
+          curl -I --max-time 20 https://odluke.sudovi.hr/ || true
     
-          echo "=== GOOGLE DNS ==="
-          nslookup odluke.sudovi.hr 8.8.8.8 || true
-    
-          echo "=== QUAD9 DNS ==="
-          nslookup odluke.sudovi.hr 9.9.9.9 || true
-    
-          echo "=== DIRECT HTTPS ==="
+          echo "=== DIRECT IP TEST ==="
           curl -I --max-time 20 \
             --resolve odluke.sudovi.hr:443:85.209.13.121 \
             https://odluke.sudovi.hr/ || true
-    
-      - name: Fix DNS
-        run: |
-          echo "85.209.13.121 odluke.sudovi.hr" | sudo tee -a /etc/hosts
-          echo "=== HOSTS ENTRY ==="
-          getent hosts odluke.sudovi.hr
     
       - name: Run crawler
         run: |
