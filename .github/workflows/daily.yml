@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-  
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -25,42 +25,32 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Test direct connection
+      - name: Network diagnostics
         run: |
-          echo "Testing direct connection to 85.209.13.121..."
-          curl -I --resolve odluke.sudovi.hr:443:85.209.13.121 https://odluke.sudovi.hr/
+          echo "=== DATE ==="
+          date -u
 
-      - name: Test authoritative DNS
-        run: |
-          echo "=== AUTHORITATIVE DNS 1 ==="
-          dig @dns.pravosudje.hr odluke.sudovi.hr A || true
-
-          echo "=== AUTHORITATIVE DNS 2 ==="
-          dig @dns2.pravosudje.hr odluke.sudovi.hr A || true
-
-          echo "=== AUTHORITATIVE SOA ==="
-          dig @dns.pravosudje.hr sudovi.hr SOA || true
-
-      - name: Test DNS
-        run: |
           echo "=== SYSTEM DNS ==="
           getent hosts odluke.sudovi.hr || true
 
-          echo "=== CLOUDFLARE ==="
+          echo "=== CLOUDFLARE DNS ==="
           nslookup odluke.sudovi.hr 1.1.1.1 || true
 
-          echo "=== GOOGLE ==="
+          echo "=== GOOGLE DNS ==="
           nslookup odluke.sudovi.hr 8.8.8.8 || true
 
-          echo "=== QUAD9 ==="
+          echo "=== QUAD9 DNS ==="
           nslookup odluke.sudovi.hr 9.9.9.9 || true
 
-          echo "=== CURL ==="
-          curl -I --max-time 20 https://odluke.sudovi.hr/ || true
+          echo "=== DIRECT HTTPS ==="
+          curl -I --max-time 20 \
+            --resolve odluke.sudovi.hr:443:85.209.13.121 \
+            https://odluke.sudovi.hr/ || true
 
       - name: Fix DNS
         run: |
           echo "85.209.13.121 odluke.sudovi.hr" | sudo tee -a /etc/hosts
+          echo "=== HOSTS ENTRY ==="
           getent hosts odluke.sudovi.hr
 
       - name: Run crawler
