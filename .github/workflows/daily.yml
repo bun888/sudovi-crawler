@@ -28,13 +28,13 @@ jobs:
       - name: Test authoritative DNS
         run: |
           echo "=== AUTHORITATIVE DNS 1 ==="
-          dig @dns.pravosudje.hr odluke.sudovi.hr A
+          dig @dns.pravosudje.hr odluke.sudovi.hr A || true
 
           echo "=== AUTHORITATIVE DNS 2 ==="
-          dig @dns2.pravosudje.hr odluke.sudovi.hr A
+          dig @dns2.pravosudje.hr odluke.sudovi.hr A || true
 
           echo "=== AUTHORITATIVE SOA ==="
-          dig @dns.pravosudje.hr sudovi.hr SOA
+          dig @dns.pravosudje.hr sudovi.hr SOA || true
 
       - name: Test DNS
         run: |
