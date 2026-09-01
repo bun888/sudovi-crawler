@@ -58,6 +58,11 @@ jobs:
           echo "=== CURL ==="
           curl -I --max-time 20 https://odluke.sudovi.hr/ || true
 
+      - name: Fix DNS
+        run: |
+          echo "85.209.13.121 odluke.sudovi.hr" | sudo tee -a /etc/hosts
+          getent hosts odluke.sudovi.hr
+
       - name: Run crawler
         run: |
           python crawler.py
