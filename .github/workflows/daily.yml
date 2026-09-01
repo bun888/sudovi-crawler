@@ -25,6 +25,11 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Test direct connection
+        run: |
+          echo "Testing direct connection to 85.209.13.121..."
+          curl -I --resolve odluke.sudovi.hr:443:85.209.13.121 https://odluke.sudovi.hr/
+
       - name: Test authoritative DNS
         run: |
           echo "=== AUTHORITATIVE DNS 1 ==="
