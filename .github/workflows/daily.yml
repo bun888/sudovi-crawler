@@ -25,6 +25,17 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Test authoritative DNS
+        run: |
+          echo "=== DNS TRACE ==="
+          dig odluke.sudovi.hr
+          echo
+          echo "=== SOA ==="
+          dig sudovi.hr SOA
+          echo
+          echo "=== NS ==="
+          dig sudovi.hr NS
+
       - name: Test DNS
         run: |
           echo "=== SYSTEM DNS ==="
