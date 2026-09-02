@@ -27,10 +27,48 @@ jobs:
     
       - name: Check DNS
         id: dns_check
-        continue-on-error: true
         run: |
           echo "=== SYSTEM DNS ==="
-          getent hosts odluke.sudovi.hr
+    
+          if dig +short A odluke.sudovi.hr | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "System DNS works."
+            dig +short A odluke.sudovi.hr
+            exit 0
+          fi
+    
+          echo "System DNS failed."
+    
+          echo "=== CLOUDFLARE DNS ==="
+    
+          if dig @1.1.1.1 +short A odluke.sudovi.hr | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Cloudflare DNS works."
+            dig @1.1.1.1 +short A odluke.sudovi.hr
+            exit 0
+          fi
+    
+          echo "Cloudflare DNS failed."
+    
+          echo "=== GOOGLE DNS ==="
+    
+          if dig @8.8.8.8 +short A odluke.sudovi.hr | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Google DNS works."
+            dig @8.8.8.8 +short A odluke.sudovi.hr
+            exit 0
+          fi
+    
+          echo "Google DNS failed."
+    
+          echo "=== QUAD9 DNS ==="
+    
+          if dig @9.9.9.9 +short A odluke.sudovi.hr | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Quad9 DNS works."
+            dig @9.9.9.9 +short A odluke.sudovi.hr
+            exit 0
+          fi
+    
+          echo "Quad9 DNS failed."
+          echo "All DNS methods failed."
+          exit 1
     
       - name: Use fallback IP
         if: steps.dns_check.outcome != 'success'
